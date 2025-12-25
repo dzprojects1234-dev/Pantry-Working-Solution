@@ -1,4 +1,4 @@
-name: Update Stock Data from Supabase
+name: Update Stock Data
 
 on:
   schedule:
@@ -11,132 +11,91 @@ permissions:
   contents: write
 
 jobs:
-  update-data:
+  update:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
       
-    - name: Install requests library
-      run: pip install requests
-      
-    - name: Fetch and save data
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      run: python -c "
+      - name: Fetch data from Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          mkdir -p public/data
+          
+          python -c "
 import os, json, requests
 from datetime import datetime
 
 url = os.environ.get('SUPABASE_URL')
-key = os.environ.get('SUPABASE_ANON_KEY')
+key = os.environ.get('SUPABASE_KEY')
 
-# Create directory
-os.makedirs('public/data', exist_ok=True)
+result = {
+    'lastUpdated': datetime.utcnow().isoformat() + 'Z',
+    'data': []
+}
 
-result = {'lastUpdated': datetime.utcnow().isoformat() + 'Z', 'data': []}
+print('Starting data fetch...')
 
 if url and key:
     try:
-        print('Fetching from Supabase...')
         headers = {
             'apikey': key,
             'Authorization': f'Bearer {key}',
             'Content-Type': 'application/json'
         }
         
-        # Try different table names - USE YOUR ACTUAL TABLE NAME HERE
-        table_names = ['inventory_changes', 'stock_changes', 'inventory', 'stock']
-        
-        for table in table_names:
-            try:
-                response = requests.get(
-                    f'{url}/rest/v1/{table}?select=*&order=date.desc&limit=100',
-                    headers=headers,
-                    timeout=10
-                )
-                if response.status_code == 200:
-                    result['data'] = response.json()
-                    print(f'Success! Got {len(result[\"data\"])} records from table: {table}')
-                    break
-                else:
-                    print(f'Table {table}: {response.status_code}')
-            except:
-                print(f'Table {table}: failed')
-        
-        if not result['data']:
-            print('All tables failed, using sample data')
-            result['data'] = [
-                {'id': 1, 'item_name': 'Milo', 'new_quantity': 4, 'previous_quantity': 2, 'date': '2025-12-24T22:33:00Z'},
-                {'id': 2, 'item_name': 'Tea Powder', 'new_quantity': 12, 'previous_quantity': 8, 'date': '2025-12-24T22:34:00Z'},
-                {'id': 3, 'item_name': 'Tea Bags', 'new_quantity': 10, 'previous_quantity': 12, 'date': '2025-12-20T23:57:00Z'},
-                {'id': 5, 'item_name': 'Susu Pekat', 'new_quantity': 314, 'previous_quantity': 214, 'date': '2025-12-24T22:49:00Z'},
-                {'id': 6, 'item_name': 'Susu Cair', 'new_quantity': 97, 'previous_quantity': 47, 'date': '2025-12-24T22:52:00Z'}
-            ]
+        # Try to fetch from 'Items' table
+        try:
+            response = requests.get(
+                f'{url}/rest/v1/Items?select=*&order=date.desc',
+                headers=headers,
+                timeout=10
+            )
             
+            if response.status_code == 200:
+                result['data'] = response.json()
+                print(f'✅ Success! Found {len(result[\"data\"])} items')
+            else:
+                print(f'⚠️ API returned {response.status_code}')
+                print(f'Response: {response.text[:200]}')
+        except Exception as e:
+            print(f'⚠️ Error fetching: {e}')
     except Exception as e:
-        print(f'Error: {e}')
-        result['data'] = [
-            {'id': 1, 'item_name': 'Milo', 'new_quantity': 4, 'previous_quantity': 2, 'date': '2025-12-24T22:33:00Z'},
-            {'id': 2, 'item_name': 'Tea Powder', 'new_quantity': 12, 'previous_quantity': 8, 'date': '2025-12-24T22:34:00Z'}
-        ]
+        print(f'⚠️ Setup error: {e}')
 else:
-    print('Missing credentials, using sample data')
+    print('⚠️ Missing credentials')
+
+# If no data, use sample
+if not result['data']:
+    print('📝 Using sample data')
     result['data'] = [
-        {'id': 1, 'item_name': 'Sample Item 1', 'new_quantity': 10, 'previous_quantity': 5, 'date': '2025-12-26T00:00:00Z'},
-        {'id': 2, 'item_name': 'Sample Item 2', 'new_quantity': 20, 'previous_quantity': 15, 'date': '2025-12-26T00:00:00Z'}
+        {'item_name': 'Milo', 'new_quantity': 4, 'previous_quantity': 2, 'date': '2025-12-24T22:33:00Z'},
+        {'item_name': 'Tea Powder', 'new_quantity': 12, 'previous_quantity': 8, 'date': '2025-12-24T22:34:00Z'},
+        {'item_name': 'Tea Bags', 'new_quantity': 10, 'previous_quantity': 12, 'date': '2025-12-20T23:57:00Z'}
     ]
 
 # Save to file
 with open('public/data/stock-data.json', 'w') as f:
     json.dump(result, f, indent=2)
 
-print('Data saved to public/data/stock-data.json')
-"
+print('📁 Data saved to stock-data.json')
+          "
       
-    - name: Copy HTML files
-      run: |
-        # Copy index.html to public folder
-        if [ -f "index.html" ]; then
-          cp index.html public/
-          echo "✅ Copied index.html"
-        else
-          echo "⚠️ index.html not found - creating basic one"
-          cat > public/index.html << 'ENDHTML'
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Inventory Dashboard</title>
-    <style>
-        body { font-family: Arial; padding: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-    </style>
-</head>
-<body>
-    <h1>Inventory Dashboard</h1>
-    <p>Data will appear here once workflow runs successfully.</p>
-    <p>Check the <a href="data/stock-data.json">data file</a></p>
-</body>
-</html>
-ENDHTML
-        fi
-        
-        # List files to verify
-        echo "📁 Public directory contents:"
-        ls -la public/
-        echo "📁 Data directory contents:"
-        ls -la public/data/
-        
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./public
+      - name: Copy index.html
+        run: |
+          if [ -f "index.html" ]; then
+            cp index.html public/
+            echo "✅ Copied index.html"
+          fi
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
