@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inventory Dashboard</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: auto; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f4f4f4; }
+        .low { background: #fff3cd; }
+        .very-low { background: #f8d7da; }
+        .update-time { color: #666; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>📊 Inventory Stock Dashboard</h1>
+    
+    <div class="update-time">
+        Last updated: <span id="updateTime">Loading...</span>
+        <button onclick="loadData()">🔄 Refresh</button>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Current Stock</th>
+                <th>Previous Stock</th>
+                <th>Change</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <tr><td colspan="5">Loading data...</td></tr>
+        </tbody>
+    </table>
+    
+    <script>
+        // Mock data - SIMPLE AND WORKING
+        const mockData = [
+            { id: 1, name: "Milo", current: 4, previous: 2, date: "2025-12-24" },
+            { id: 2, name: "Tea Powder", current: 12, previous: 8, date: "2025-12-24" },
+            { id: 3, name: "Tea Bags", current: 10, previous: 12, date: "2025-12-20" },
+            { id: 4, name: "Susu Pekat", current: 314, previous: 214, date: "2025-12-24" },
+            { id: 5, name: "Susu Cair", current: 97, previous: 47, date: "2025-12-24" },
+            { id: 6, name: "Coffee Powder", current: 23, previous: 25, date: "2025-12-24" },
+            { id: 7, name: "Sugar", current: 15, previous: 20, date: "2025-12-24" }
+        ];
+
+        function loadData() {
+            const now = new Date();
+            document.getElementById('updateTime').textContent = now.toLocaleString();
+            
+            const tableBody = document.getElementById('tableBody');
+            
+            tableBody.innerHTML = mockData.map(item => {
+                const change = item.current - item.previous;
+                const changeText = change > 0 ? `+${change}` : change;
+                
+                let status = "✅ Good";
+                let rowClass = "";
+                
+                if (item.current < 10) {
+                    status = "⚠️ Very Low";
+                    rowClass = "very-low";
+                } else if (item.current < 20) {
+                    status = "📉 Low";
+                    rowClass = "low";
+                }
+                
+                return `
+                    <tr class="${rowClass}">
+                        <td>${item.name}</td>
+                        <td><strong>${item.current}</strong></td>
+                        <td>${item.previous}</td>
+                        <td>${changeText}</td>
+                        <td>${status}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // Load data on page load
+        loadData();
+        
+        // Auto-refresh every 5 minutes
+        setInterval(loadData, 300000);
+    </script>
+</body>
+</html>
