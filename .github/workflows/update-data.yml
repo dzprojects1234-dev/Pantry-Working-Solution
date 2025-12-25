@@ -13,7 +13,6 @@ permissions:
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    environment: production
     
     steps:
     - name: Checkout repository
@@ -29,16 +28,18 @@ jobs:
         # Create data directory
         mkdir -p public/data
         
-        # Fetch from your table - CHANGE 'your_table_name' to your actual table name
-        # Based on your screenshot, it might be 'inventory_changes' or similar
-        echo "📊 Fetching from: $SUPABASE_URL"
+        # Get current date
+        CURRENT_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         
         # Try to fetch data
+        echo "📊 Fetching from: $SUPABASE_URL"
+        
+        # Make the API call
         RESPONSE=$(curl -s -w "\n%{http_code}" \
           "$SUPABASE_URL/rest/v1/inventory_changes?select=*&order=date.desc" \
           -H "apikey: $SUPABASE_ANON_KEY" \
           -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-          -H "Content-Type: application/json")
+          -H "Content-Type: application/json" 2>/dev/null || echo "CURL_FAILED\n000")
         
         # Separate body and status code
         BODY=$(echo "$RESPONSE" | head -n -1)
@@ -46,17 +47,22 @@ jobs:
         
         echo "Status code: $STATUS_CODE"
         
-        if [ "$STATUS_CODE" = "200" ]; then
+        if [ "$STATUS_CODE" = "200" ] && [ "$BODY" != "CURL_FAILED" ]; then
           echo "✅ Successfully fetched data"
-          echo '{"lastUpdated": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'", "data": '"$BODY"'}' > public/data/stock-data.json
+          cat > public/data/stock-data.json << EOF
+{
+  "lastUpdated": "$CURRENT_DATE",
+  "data": $BODY
+}
+EOF
         else
           echo "⚠️ Failed to fetch data. Using sample data."
           echo "Response: $BODY"
           
-          # Create sample data
-          cat > public/data/stock-data.json << 'EOF'
+          # Create sample data (FIXED SYNTAX)
+          cat > public/data/stock-data.json << EOF
 {
-  "lastUpdated": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "lastUpdated": "$CURRENT_DATE",
   "data": [
     {"id": 1, "item_name": "Milo", "new_quantity": 4, "previous_quantity": 2, "date": "2025-12-24T22:33:00Z"},
     {"id": 2, "item_name": "Tea Powder", "new_quantity": 12, "previous_quantity": 8, "date": "2025-12-24T22:34:00Z"},
@@ -66,13 +72,9 @@ jobs:
   ]
 }
 EOF
-          # Fix the date placeholder
-          sed -i "s/\\\$(date[^)]*)/$(date -u +"%Y-%m-%dT%H:%M:%SZ")/g" public/data/stock-data.json
         fi
         
         echo "📁 Data saved to public/data/stock-data.json"
-        echo "First 200 chars:"
-        head -c 200 public/data/stock-data.json && echo "..."
         
     - name: Copy index.html to public folder
       run: |
@@ -81,6 +83,14 @@ EOF
           echo "✅ Copied index.html"
         else
           echo "⚠️ index.html not found in root"
+          # Create a basic index.html
+          cat > public/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><title>Inventory Dashboard</title></head>
+          <body><h1>Loading...</h1><p>Please update index.html in repository root</p></body>
+          </html>
+          EOF
         fi
         
     - name: Deploy to GitHub Pages
