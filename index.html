@@ -4,19 +4,21 @@
     <title>Inventory Dashboard</title>
     <style>
         body { font-family: Arial; padding: 20px; max-width: 1000px; margin: auto; }
+        h1 { color: #333; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
         th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
         th { background: #f4f4f4; }
         .low { background: #fff3cd; }
         .very-low { background: #f8d7da; }
+        button { background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
     <h1>📊 Inventory Stock Dashboard</h1>
-    <p>Last updated: <span id="time">Loading...</span></p>
+    <p>Last updated: <span id="time"></span></p>
     <button onclick="loadData()">🔄 Refresh</button>
     
-    <table id="table">
+    <table>
         <thead>
             <tr>
                 <th>Item Name</th>
@@ -27,55 +29,58 @@
             </tr>
         </thead>
         <tbody id="tableBody">
-            <tr><td colspan="5">Loading data...</td></tr>
+            <!-- Data will appear here -->
         </tbody>
     </table>
     
     <script>
-        async function loadData() {
-            try {
-                const response = await fetch('stock-data.json');
-                const result = await response.json();
+        // YOUR DATA - Edit this array with your actual stock data
+        const stockData = [
+            { item_name: "Tea Powder", new_quantity: 12, previous_quantity: 8, date: "2025-12-24T22:34:00Z" },
+            { item_name: "Tea Bags", new_quantity: 10, previous_quantity: 12, date: "2025-12-20T23:57:00Z" },
+            { item_name: "Susu Pekat", new_quantity: 314, previous_quantity: 214, date: "2025-12-24T22:49:00Z" },
+            { item_name: "Susu Cair", new_quantity: 97, previous_quantity: 47, date: "2025-12-24T22:52:00Z" },
+            { item_name: "Milo", new_quantity: 4, previous_quantity: 2, date: "2025-12-24T22:33:00Z" }
+        ];
+        
+        function loadData() {
+            // Update time
+            document.getElementById('time').textContent = new Date().toLocaleString();
+            
+            // Update table
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = stockData.map(item => {
+                const change = item.new_quantity - item.previous_quantity;
+                const changeText = change > 0 ? `+${change}` : change;
                 
-                document.getElementById('time').textContent = 
-                    new Date(result.lastUpdated).toLocaleString();
+                let status = '✅ Good';
+                let rowClass = '';
                 
-                const tbody = document.getElementById('tableBody');
-                tbody.innerHTML = result.data.map(item => {
-                    const change = item.new_quantity - item.previous_quantity;
-                    const changeText = change > 0 ? `+${change}` : change;
-                    
-                    let status = '✅ Good';
-                    let rowClass = '';
-                    
-                    if (item.new_quantity < 10) {
-                        status = '⚠️ Very Low';
-                        rowClass = 'very-low';
-                    } else if (item.new_quantity < 20) {
-                        status = '📉 Low';
-                        rowClass = 'low';
-                    }
-                    
-                    return `
-                        <tr class="${rowClass}">
-                            <td>${item.item_name}</td>
-                            <td>${item.new_quantity}</td>
-                            <td>${item.previous_quantity}</td>
-                            <td>${changeText}</td>
-                            <td>${status}</td>
-                        </tr>
-                    `;
-                }).join('');
+                if (item.new_quantity < 10) {
+                    status = '⚠️ Very Low';
+                    rowClass = 'very-low';
+                } else if (item.new_quantity < 20) {
+                    status = '📉 Low';
+                    rowClass = 'low';
+                }
                 
-            } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('tableBody').innerHTML = 
-                    '<tr><td colspan="5">❌ Error loading data</td></tr>';
-            }
+                return `
+                    <tr class="${rowClass}">
+                        <td>${item.item_name}</td>
+                        <td>${item.new_quantity}</td>
+                        <td>${item.previous_quantity}</td>
+                        <td>${changeText}</td>
+                        <td>${status}</td>
+                    </tr>
+                `;
+            }).join('');
         }
         
+        // Load data on page load
         loadData();
-        setInterval(loadData, 60000); // Refresh every minute
+        
+        // Auto-refresh every 5 minutes
+        setInterval(loadData, 300000);
     </script>
 </body>
 </html>
