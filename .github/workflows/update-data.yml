@@ -1,106 +1,11 @@
-name: Update Stock Data from Supabase
-
-on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
-
-permissions:
-  contents: write
-
+name: Simple Test
+on: workflow_dispatch
 jobs:
-  update-data:
+  test:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
-    - name: Setup Python for JSON handling
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-      
-    - name: Create Python script to fetch data
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      run: |
-        cat > fetch_data.py << 'EOF'
-import os
-import json
-from datetime import datetime
-import requests
-
-# Get credentials from environment
-url = os.environ['SUPABASE_URL']
-key = os.environ['SUPABASE_ANON_KEY']
-
-# Create public/data directory
-os.makedirs('public/data', exist_ok=True)
-
-try:
-    # Fetch data from Supabase
-    print("Fetching data from Supabase...")
-    headers = {
-        'apikey': key,
-        'Authorization': f'Bearer {key}',
-        'Content-Type': 'application/json'
-    }
-    
-    # Try your table - adjust table name as needed
-    response = requests.get(
-        f'{url}/rest/v1/inventory_changes?select=*&order=date.desc',
-        headers=headers,
-        timeout=30
-    )
-    
-    if response.status_code == 200:
-        data = response.json()
-        print(f"Success! Got {len(data)} records")
-        
-        result = {
-            "lastUpdated": datetime.utcnow().isoformat() + "Z",
-            "data": data
-        }
-    else:
-        print(f"Failed with status {response.status_code}")
-        # Fallback to sample data
-        result = {
-            "lastUpdated": datetime.utcnow().isoformat() + "Z",
-            "data": [
-                {"id": 1, "item_name": "Milo", "new_quantity": 4, "previous_quantity": 2, "date": "2025-12-24T22:33:00Z"},
-                {"id": 2, "item_name": "Tea Powder", "new_quantity": 12, "previous_quantity": 8, "date": "2025-12-24T22:34:00Z"},
-                {"id": 3, "item_name": "Tea Bags", "new_quantity": 10, "previous_quantity": 12, "date": "2025-12-20T23:57:00Z"},
-                {"id": 5, "item_name": "Susu Pekat", "new_quantity": 314, "previous_quantity": 214, "date": "2025-12-24T22:49:00Z"},
-                {"id": 6, "item_name": "Susu Cair", "new_quantity": 97, "previous_quantity": 47, "date": "2025-12-24T22:52:00Z"}
-            ]
-        }
-    
-    # Save to file
-    with open('public/data/stock-data.json', 'w') as f:
-        json.dump(result, f, indent=2)
-        
-    print("Data saved successfully")
-    
-except Exception as e:
-    print(f"Error: {e}")
-    # Create empty data file
-    with open('public/data/stock-data.json', 'w') as f:
-        json.dump({"lastUpdated": datetime.utcnow().isoformat() + "Z", "data": []}, f, indent=2)
-EOF
-        
-        # Run the Python script
-        python fetch_data.py
-        
-        # Copy index.html if exists
-        if [ -f "index.html" ]; then
-          cp index.html public/
-          echo "✅ Copied index.html"
-        fi
-        
-    - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./public
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir -p public/data
+          echo '{"test": "working"}' > public/data/stock-data.json
+          echo 'Done!'
